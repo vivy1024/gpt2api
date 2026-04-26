@@ -340,10 +340,14 @@ func (r *Runner) runOnce(ctx context.Context, opt RunOptions, result *RunResult)
 	// 会通过 f/conversation 的 payload 字段传达。
 
 	// 4.5) 图生图:上传参考图。任何一张失败都直接整体 fail(上游后续会对不上 attachment)。
+	//
+	// 超时预算:UploadFile 内部对网络层瞬时错误重试 4 次(0+0.5+1.5+3=5s 退避总和),
+	// 三步串行各自最多耗时 30s 上下,叠加重试时单张图最坏 ≈ 3*(30s+5s) = 105s。
+	// 给 180s 留一点余量;如果还是超时,说明根本不是瞬时问题,fail-fast 也合理。
 	var refs []*chatgpt.UploadedFile
 	if len(opt.References) > 0 {
 		for idx, r0 := range opt.References {
-			upCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+			upCtx, cancel := context.WithTimeout(ctx, 180*time.Second)
 			up, err := cli.UploadFile(upCtx, r0.Data, r0.FileName)
 			cancel()
 			if err != nil {
