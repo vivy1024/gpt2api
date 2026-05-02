@@ -17,9 +17,16 @@ set -euo pipefail
 
 MYSQL_HOST=${MYSQL_HOST:-mysql}
 MYSQL_PORT=${MYSQL_PORT:-3306}
-MYSQL_USER=${MYSQL_USER:-gpt2api}
+# Zeabur 注入 MYSQL_USERNAME; 兼容 MYSQL_USER
+MYSQL_USER=${MYSQL_USER:-${MYSQL_USERNAME:-gpt2api}}
 MYSQL_PASSWORD=${MYSQL_PASSWORD:-gpt2api}
 MYSQL_DATABASE=${MYSQL_DATABASE:-gpt2api}
+
+# 确保 config.yaml 存在（从 example 复制）
+if [ ! -f /app/configs/config.yaml ] && [ -f /app/configs/config.example.yaml ]; then
+  cp /app/configs/config.example.yaml /app/configs/config.yaml
+  log "created config.yaml from example"
+fi
 
 log() { echo "[entrypoint] $*"; }
 
