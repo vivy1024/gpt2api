@@ -381,6 +381,9 @@ func New(d *Deps) *gin.Engine {
 		r.GET("/p/img/:task_id/:idx", d.ImagesH.ImageProxy)
 	}
 
+	// ---- 内部接口(无需 API Key 认证) ----
+	r.POST("/internal/generate", gateway.HandleInternalImageGenerate)
+
 	// ---- 前端 SPA(可选;找不到 dist 就跳过) ----
 	mountSPA(r)
 
