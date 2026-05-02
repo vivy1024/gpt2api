@@ -38,7 +38,6 @@ import (
 	"github.com/432539/gpt2api/pkg/logger"
 	"github.com/432539/gpt2api/pkg/mailer"
 	pkgratelimit "github.com/432539/gpt2api/pkg/ratelimit"
-	"github.com/gin-gonic/gin"
 )
 
 var (
@@ -79,12 +78,6 @@ func main() {
 
 	sqldb, err := db.NewMySQL(cfg.MySQL)
 	if err != nil {
-		// 瘦模式: 无 MySQL 时只启动 /internal/generate 端点
-		if cfg.MySQL.DSN == "" {
-			log.Warn("mysql dsn empty, running in thin mode (only /internal/generate)")
-			runThinMode(cfg)
-			return
-		}
 		log.Fatal("mysql init", zap.Error(err))
 	}
 	defer sqldb.Close()
@@ -407,24 +400,4 @@ func (r *accountProxyResolver) AuthToken(ctx context.Context, accountID uint64) 
 // ProxyURL 给图片代理端点用:等价于 ProxyURLForAccount。
 func (r *accountProxyResolver) ProxyURL(ctx context.Context, accountID uint64) string {
 	return r.ProxyURLForAccount(ctx, accountID)
-}
-
-// runThinMode 瘦模式: 无 MySQL/Redis 依赖，仅提供 /internal/generate 和 /healthz
-func runThinMode(cfg *config.Config) {
-	gin.SetMode(gin.ReleaseMode)
-	r := gin.New()
-	r.Use(gin.Recovery())
-
-	r.GET("/healthz", func(c *gin.Context) { c.String(200, "ok") })
-	r.POST("/internal/generate", gateway.HandleInternalImageGenerate)
-
-	addr := cfg.App.Listen
-	if addr == "" {
-		addr = ":8080"
-	}
-	fmt.Printf("[thin] gpt2api thin mode listening on %s\n", addr)
-	if err := http.ListenAndServe(addr, r); err != nil {
-		fmt.Fprintf(os.Stderr, "thin mode: %v\n", err)
-		os.Exit(1)
-	}
 }

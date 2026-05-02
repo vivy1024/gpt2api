@@ -58,13 +58,7 @@ run_migrate() {
 }
 
 wait_mysql || true
-if [ -n "${MYSQL_HOST:-}" ]; then
-  run_migrate || { log "migration failed"; exit 1; }
-else
-  log "no MYSQL_HOST set, skipping migration (thin mode)"
-  # 清空 DSN 让 Go 进入瘦模式
-  export GPT2API_MYSQL_DSN=""
-fi
+run_migrate || { log "migration failed"; exit 1; }
 
 log "starting: $*"
 exec "$@"
