@@ -22,13 +22,13 @@ MYSQL_USER=${MYSQL_USER:-${MYSQL_USERNAME:-gpt2api}}
 MYSQL_PASSWORD=${MYSQL_PASSWORD:-gpt2api}
 MYSQL_DATABASE=${MYSQL_DATABASE:-gpt2api}
 
+log() { echo "[entrypoint] $*"; }
+
 # 确保 config.yaml 存在（从 example 复制）
 if [ ! -f /app/configs/config.yaml ] && [ -f /app/configs/config.example.yaml ]; then
   cp /app/configs/config.example.yaml /app/configs/config.yaml
   log "created config.yaml from example"
 fi
-
-log() { echo "[entrypoint] $*"; }
 
 wait_mysql() {
   log "waiting for mysql ${MYSQL_HOST}:${MYSQL_PORT}..."
