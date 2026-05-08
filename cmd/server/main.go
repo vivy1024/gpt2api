@@ -157,6 +157,7 @@ func main() {
 		DAO:     imageDAO,
 	}
 	gwH.Images = imagesH // chat/completions 识别到图像模型时转派
+	gateway.InitImageProxyBaseURL(cfg.App.BaseURL)
 
 	// 把"上游签名 URL"翻译成"自家代理 URL":历史任务列表 / 详情接口
 	// 在序列化时调用,前端拿到的全是 /p/img/<task>/<idx>?... 的本地链接,

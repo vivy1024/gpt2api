@@ -29,7 +29,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -59,12 +61,26 @@ type ImageAccountResolver interface {
 // 进程重启后旧的签名 URL 全部失效,这是故意的(防止长期有效的 URL 泄漏)。
 var imageProxySecret []byte
 
+// imageProxyBaseURL 图片代理 URL 前缀。非空时 BuildImageProxyURL 返回绝对 URL,
+// 解决被外部网关(如 sub2api)转发后客户端无法访问相对路径的问题。
+// 通过环境变量 GPT2API_APP_BASE_URL 或配置文件 app.base_url 设置。
+var imageProxyBaseURL string
+
+// InitImageProxyBaseURL 由 main.go 在加载配置后调用,注入 base_url。
+func InitImageProxyBaseURL(baseURL string) {
+	imageProxyBaseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+}
+
 func init() {
 	imageProxySecret = make([]byte, 32)
 	if _, err := rand.Read(imageProxySecret); err != nil {
 		for i := range imageProxySecret {
 			imageProxySecret[i] = byte(i*31 + 7)
 		}
+	}
+	// 也支持直接从环境变量读取,不依赖 config 加载顺序
+	if env := strings.TrimSpace(os.Getenv("GPT2API_APP_BASE_URL")); env != "" {
+		imageProxyBaseURL = strings.TrimRight(env, "/")
 	}
 }
 
@@ -84,7 +100,10 @@ func parseIntDefault(s string, def int) int {
 	return n
 }
 
-// BuildImageProxyURL 生成代理 URL。返回绝对 path(不含 host),调用方可以直接拼或交给前端同 origin 使用。
+// BuildImageProxyURL 生成代理 URL。
+//
+// 当 app.base_url 已配置时返回完整绝对 URL(适合被外部网关转发后客户端仍能访问);
+// 未配置时回退为相对 path(同 origin 场景)。
 //
 // 默认 ttl=24h。前端展示一张历史图片,最多走一次上游获取 bytes,之后浏览器缓存即可。
 func BuildImageProxyURL(taskID string, idx int, ttl time.Duration) string {
@@ -93,7 +112,11 @@ func BuildImageProxyURL(taskID string, idx int, ttl time.Duration) string {
 	}
 	expMs := time.Now().Add(ttl).UnixMilli()
 	sig := computeImgSig(taskID, idx, expMs)
-	return fmt.Sprintf("/p/img/%s/%d?exp=%d&sig=%s", taskID, idx, expMs, sig)
+	path := fmt.Sprintf("/p/img/%s/%d?exp=%d&sig=%s", taskID, idx, expMs, sig)
+	if imageProxyBaseURL != "" {
+		return imageProxyBaseURL + path
+	}
+	return path
 }
 
 func computeImgSig(taskID string, idx int, expMs int64) string {
